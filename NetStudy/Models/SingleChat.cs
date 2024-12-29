@@ -1,14 +1,10 @@
 ﻿using System;
 
-namespace NetStudy.Models
+public class SingleChat
 {
-    public class SingleChat
-    {
-        public string Sender { get; set; }
-        public string Receiver { get; set; }
-        public string Content { get; set; }
-
-        public Dictionary<string, string> SessionKeyEncrypted { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    }
+    public string Id { get; set; }
+    public string Sender { get; set; }
+    public string Receiver { get; set; }
+    public string Message { get; set; }
+    public DateTime Timestamp { get; set; }
 }

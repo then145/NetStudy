@@ -19,6 +19,9 @@ namespace NetStudy.Forms
         public DocumentUpload(string currentUserName, string accessToken)
         {
             InitializeComponent();
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
             _httpClient = new HttpClient { BaseAddress = new Uri("https://localhost:7070/") };
             _currentUserName = currentUserName;
             _accessToken = accessToken;

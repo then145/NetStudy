@@ -1,4 +1,5 @@
 ﻿using API_Server.Models;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Driver.GridFS;
 using System.Collections.Generic;
@@ -29,6 +30,12 @@ namespace API_Server.Services
             return (document.Id, document.UploaderName);
         }
 
+        // Get documents uploaded by the current user
+        public async Task<List<Document>> GetDocumentsByUploaderAsync(string uploaderName)
+        {
+            return await _documents.Find(d => d.UploaderName == uploaderName).ToListAsync();
+        }
+
         // Get a document detail
         public async Task<UploadResponse> GetDocumentByIdAsync(string id)
         {
@@ -57,6 +64,15 @@ namespace API_Server.Services
             var fileId = new MongoDB.Bson.ObjectId(id);
             var stream = await _gridFS.OpenDownloadStreamAsync(fileId);
             return stream;
+        }
+
+        // Get documents downloaded by the current user
+        public async Task<List<Document>> GetDownloadedDocumentsAsync(string username)
+        {
+            var downloads = await _userService.GetUserDownloads(username);
+            var documentIds = downloads.Select(d => d.DocumentId).ToList();
+            var filter = Builders<Document>.Filter.In(d => d.Id, documentIds);
+            return await _documents.Find(filter).ToListAsync();
         }
 
         // Delete a document
@@ -102,7 +118,7 @@ namespace API_Server.Services
         }
 
         // Search documents with access control
-        public async Task<List<Document>> SearchDocumentsAsync(string keyword, string username)
+        public async Task<(List<Document>, int)> SearchDocumentsAsync(string keyword, string username, int pageNumber, int pageSize)
         {
             var filter = Builders<Document>.Filter.Or(
                 Builders<Document>.Filter.Regex("Title", new MongoDB.Bson.BsonRegularExpression(keyword, "i")),
@@ -110,7 +126,14 @@ namespace API_Server.Services
                 Builders<Document>.Filter.Regex("Tag", new MongoDB.Bson.BsonRegularExpression(keyword, "i"))
             );
 
-            var documents = await _documents.Find(filter).ToListAsync();
+            var totalDocuments = await _documents.CountDocumentsAsync(filter);
+            var totalPages = (int)Math.Ceiling((double)totalDocuments / pageSize);
+
+            var documents = await _documents.Find(filter)
+                                            .Skip((pageNumber - 1) * pageSize)
+                                            .Limit(pageSize)
+                                            .ToListAsync();
+
             var accessibleDocuments = new List<Document>();
 
             foreach (var document in documents)
@@ -121,7 +144,7 @@ namespace API_Server.Services
                 }
             }
 
-            return accessibleDocuments;
+            return (accessibleDocuments, totalPages);
         }
 
         // Update a document
@@ -137,6 +160,23 @@ namespace API_Server.Services
                 .Set(d => d.ShareWithAll, updatedDocument.ShareWithAll);
 
             await _documents.UpdateOneAsync(filter, update);
+        }
+
+        public async Task<byte[]> DownloadDocumentContentAsync(string id)
+        {
+            if (!ObjectId.TryParse(id, out ObjectId fileId))
+            {
+                throw new FormatException($"Invalid ObjectId format: {id}");
+            }
+
+            using (var stream = await _gridFS.OpenDownloadStreamAsync(fileId))
+            {
+                using (var memoryStream = new MemoryStream())
+                {
+                    await stream.CopyToAsync(memoryStream);
+                    return memoryStream.ToArray();
+                }
+            }
         }
     }
 }

@@ -20,6 +20,9 @@ namespace NetStudy.Forms
         public DocumentEdit(string documentId, string accessToken)
         {
             InitializeComponent();
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
             _httpClient = new HttpClient { BaseAddress = new Uri("https://localhost:7070/") };
             _documentId = documentId;
             _accessToken = accessToken;
@@ -58,7 +61,7 @@ namespace NetStudy.Forms
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    MessageBox.Show("Document not found. It may have been deleted.", "Get Document Details Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Không tìm thấy tài liệu.", "Get Document Details Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return null;
                 }
                 else
@@ -96,13 +99,13 @@ namespace NetStudy.Forms
             var response = await UpdateDocumentAsync(updatedDocument);
             if (response.IsSuccessStatusCode)
             {
-                MessageBox.Show("Document updated successfully.");
+                MessageBox.Show("Chỉnh sửa tài liệu thành công.");
                 this.Close();
             }
             else
             {
                 var errorMessage = await response.Content.ReadAsStringAsync();
-                MessageBox.Show($"Failed to update document. Error: {errorMessage}");
+                MessageBox.Show($"Chỉnh sửa tài liệu thất bại. Lỗi: {errorMessage}");
             }
         }
 

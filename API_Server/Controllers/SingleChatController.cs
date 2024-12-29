@@ -1,72 +1,55 @@
-﻿using API_Server.DTOs;
-using API_Server.Models;
-using API_Server.Services;
+﻿using API_Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace API_Server.Controllers
+[Authorize]
+[ApiController]
+[Route("api/singlechat")]
+public class SingleChatController : ControllerBase
 {
-    [Route("api/chat")]
-    [ApiController]
-    public class SingleChatController : ControllerBase
+    private readonly SingleChatService _chatService;
+    private readonly JwtService _jwtService;
+    private readonly UserService _userService;
+
+    public SingleChatController(SingleChatService chatService, JwtService jwtService, UserService userService)
     {
-        private readonly SingleChatService _chatService;
+        _chatService = chatService;
+        _jwtService = jwtService;
+        _userService = userService;
+    }
 
-        public SingleChatController(SingleChatService chatService)
+    [HttpPost("send")]
+    public async Task<IActionResult> SendMessage([FromBody] SingleChat chat)
+    {
+        await _chatService.SendMessage(chat);
+        return Ok(new { message = "Message sent successfully!" });
+    }
+
+    [HttpGet("history/{user1}/{user2}")]
+    public async Task<ActionResult<List<SingleChat>>> GetChatHistory(string user1, string user2)
+    {
+        var chats = await _chatService.GetChatHistory(user1, user2);
+        return Ok(chats);
+    }
+
+    [HttpGet("get-friend-list/{username}")]
+    public async Task<ActionResult<List<string>>> GetListFriend(string username)
+    {
+        var authorizationHeader = Request.Headers["Authorization"].ToString();
+        if (!_jwtService.IsValidate(authorizationHeader))
         {
-            _chatService = chatService;
+            return Unauthorized(new { message = "Invalid request!" });
         }
-
-        // API to send a message
-        [Authorize]
-        [HttpPost("send")]
-        public async Task<IActionResult> SendMessage([FromBody] SendMessage chatMessage)
+        try
         {
-            try
-            {
-                if (chatMessage == null || string.IsNullOrEmpty(chatMessage.Sender) || string.IsNullOrEmpty(chatMessage.Receiver) || string.IsNullOrEmpty(chatMessage.Content))
-                {
-                    return BadRequest(new
-                    {
-                        message = "Tin nhắn không hợp lệ"
-                    });
-                }
-                var msg = new SingleChat
-                {
-                    Sender = chatMessage.Sender,
-                    Receiver = chatMessage.Receiver,
-                    Content = chatMessage.Content,
-                    SessionKeyEncrypted = chatMessage.SessionKeyEncrypted,
-                    Timestamp = DateTime.UtcNow
-                };
-                await _chatService.SendMessageAsync(msg);
-
-                return Ok(new
-                {
-                    message = "Gửi tin nhắn thành công",
-                    contentMsg = msg
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    message = ex.Message,
-                });
-            }
+            var friends = await _userService.GetListFriendIdByUsername(username);
+            return Ok(new { total = friends.Count, data = friends });
         }
-
-        // API to get chat history
-        [HttpGet("history")]
-        public async Task<IActionResult> GetChatHistory([FromQuery] string user1, [FromQuery] string user2)
+        catch (Exception ex)
         {
-            var messages = await _chatService.GetMessagesAsync(user1, user2);
-            return Ok(new
-            {
-                message = "Lấy tin nhắn thành công!",
-                data = messages
-            });
+            return StatusCode(500, new { message = "Internal Server Error", details = ex.Message });
         }
     }
 }

@@ -55,6 +55,15 @@ namespace API_Server.Controllers
             return Ok(document);
         }
 
+        // API to get documents uploaded by the current user
+        [Authorize]
+        [HttpGet("mydocuments")]
+        public async Task<IActionResult> GetMyDocuments([FromQuery] string username)
+        {
+            var documents = await _documentService.GetDocumentsByUploaderAsync(username);
+            return Ok(documents);
+        }
+
         // API to download a document
         [HttpGet("download/{id}")]
         public async Task<IActionResult> DownloadDocument(string id, [FromQuery] string username)
@@ -73,6 +82,15 @@ namespace API_Server.Controllers
             {
                 return Forbid();
             }
+        }
+
+        // API to get documents downloaded by the current user
+        [Authorize]
+        [HttpGet("mydownloads")]
+        public async Task<IActionResult> GetMyDownloads([FromQuery] string username)
+        {
+            var documents = await _documentService.GetDownloadedDocumentsAsync(username);
+            return Ok(documents);
         }
 
         // API to edit a document
@@ -100,10 +118,30 @@ namespace API_Server.Controllers
 
         // API to search documents
         [HttpGet("search")]
-        public async Task<IActionResult> SearchDocuments([FromQuery] string keyword, [FromQuery] string username)
+        public async Task<IActionResult> SearchDocuments([FromQuery] string keyword, [FromQuery] string username, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 5)
         {
-            var documents = await _documentService.SearchDocumentsAsync(keyword, username);
+            var (documents, totalPages) = await _documentService.SearchDocumentsAsync(keyword, username, pageNumber, pageSize);
+            Response.Headers.Add("X-Total-Pages", totalPages.ToString());
             return Ok(documents);
+        }
+
+        // API to view content
+        [HttpGet("content/{id}")]
+        public async Task<IActionResult> GetDocumentContent(string id)
+        {
+            try
+            {
+                var content = await _documentService.DownloadDocumentContentAsync(id);
+                if (content == null)
+                {
+                    return NotFound();
+                }
+                return File(content, "application/octet-stream", id);
+            }
+            catch (FormatException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
 }

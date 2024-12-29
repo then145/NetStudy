@@ -16,6 +16,11 @@ namespace API_Server.Services
             GridFS = new GridFSBucket(_db);
         }
 
+        public IMongoDatabase GetDatabase()
+        {
+            return _db;
+        }
+
         public IMongoCollection<User> Users => _db.GetCollection<User>("User");
         public IMongoCollection<TokenData> Tokens => _db.GetCollection<TokenData>("TokenData");
         public IMongoCollection<Group> ChatGroup => _db.GetCollection<Group>("ChatGroup");
@@ -26,5 +31,6 @@ namespace API_Server.Services
         public IMongoCollection<KeyModel> KeyModel => _db.GetCollection<KeyModel>("Key");
         public IMongoCollection<ListTask> ListTasks => _db.GetCollection<ListTask>("Tasks");
         public IMongoCollection<Document> Documents => _db.GetCollection<Document>("Documents");
+        public IMongoCollection<DownloadResponse> Downloads => _db.GetCollection<DownloadResponse>("Downloads");
     }
 }

@@ -10,6 +10,7 @@ namespace API_Server.Services
         private readonly IMongoCollection<User> users;
         private readonly IMongoCollection<Group> groups;
         private readonly IMongoCollection<Otp> otps;
+        private readonly IMongoCollection<DownloadResponse> _downloads;
 
         private EmailService emailService;
         private ImageService imageService;
@@ -23,6 +24,7 @@ namespace API_Server.Services
             emailService = email;
             imageService = imgService;
             _users = new Dictionary<string, User>();
+            _downloads = db.Downloads;
         }
          
         public async Task<List<User>> GetAllUserAsync() => await users.Find(_ =>  true).ToListAsync();
@@ -369,7 +371,6 @@ namespace API_Server.Services
                 Avatar = "https://i.pinimg.com/736x/62/ee/b3/62eeb37155f0df95a708586aed9165c5.jpg",
                 CreatedAt = DateTime.UtcNow,
                 IsEmailVerified = false,
-                OpStatus = false
             };
 
             await otps.InsertOneAsync(otpEntry);
@@ -409,7 +410,6 @@ namespace API_Server.Services
                 Avatar = "https://i.pinimg.com/736x/62/ee/b3/62eeb37155f0df95a708586aed9165c5.jpg",
                 CreatedAt = DateTime.UtcNow,
                 IsEmailVerified = true,
-                OpStatus = true
             };
 
             await users.InsertOneAsync(newUser);
@@ -422,7 +422,6 @@ namespace API_Server.Services
                 PublicKey = newUser.PublicKey,
                 DateOfBirth = newUser.DateOfBirth,
                 Status = newUser.Status,
-                OpStatus = newUser.OpStatus,
                 IsEmailVerified = newUser.IsEmailVerified,
                 CreatedAt = newUser.CreatedAt
             };
@@ -452,15 +451,7 @@ namespace API_Server.Services
 
             return (true, "Đăng nhập thành công", user);
         }
-        
-        public async Task<bool> UpdateUserStatusAsync(string username, bool opStatus)
-        {
-            var filter = Builders<User>.Filter.Eq(u => u.Username, username);
-            var update = Builders<User>.Update.Set(u => u.OpStatus, opStatus);
-            var result = await users.UpdateOneAsync(filter, update);
-
-            return result.ModifiedCount > 0;
-        }
+       
         public async Task<(bool Success, string Message)> ForgetPasswordAsync(string email)
         {
             var filter = Builders<User>.Filter.Eq(u => u.Email, email);
@@ -590,6 +581,11 @@ namespace API_Server.Services
         {
             var user = await GetUserByUserName(userName);
             return user?.ChatGroup ?? new List<string>();
+        }
+
+        public async Task<List<DownloadResponse>> GetUserDownloads(string username)
+        {
+            return await _downloads.Find(d => d.Username == username).ToListAsync();
         }
     }
 }

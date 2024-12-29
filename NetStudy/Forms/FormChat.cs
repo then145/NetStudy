@@ -1,248 +1,227 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using NetStudy.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using NetStudy.Models;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
-using NetStudy.Services;
-using Org.BouncyCastle.Tls;
+using Timer = System.Windows.Forms.Timer;
 
 namespace NetStudy.Forms
 {
     public partial class FormChat : Form
     {
-        private HubConnection _hubConnection;
-        private string _currentUser;
-        private string _currentChatUser;
+        private HubConnection _connection;
         private string _accessToken;
-        private string _key;
-        private readonly AesService _aesService;
-        private readonly RsaService _rsaService;
-        private readonly UserService _userService;
-        private readonly SingleChatService singleChatService;
-        private string aesKey;
+        private string _username;
+        private HttpClient _httpClient;
+        private Panel _selectedPanel;
+        private Timer _timer;
 
-        public FormChat(string accessToken, string username, string key)
+        public FormChat(string accessToken, string username)
         {
             InitializeComponent();
-            CustomizeGroupBox();
             _accessToken = accessToken;
-            singleChatService = new SingleChatService(accessToken);
-            _aesService = new AesService();
-            _rsaService = new RsaService();
-            _userService = new UserService();
-            _currentUser = username;
-            _key = key;
-            aesKey = _aesService.GenerateAesKey();
-            textBox_myusrname.Text = _currentUser;
-            InitializeSignalR();
+            _username = username;
+            _httpClient = new HttpClient { BaseAddress = new Uri("https://localhost:7070/") };
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+            ConnectToServer();
+            CustomizeGroupBox();
             LoadFriends();
-            comboBox_mystatus.SelectedItem = "Đang hoạt động";
+
+            textBox_msg.Text = "Nhập tin nhắn...";
+            textBox_msg.ForeColor = Color.Gray;
+            textBox_msg.Enabled = false;
+
+            textBox_msg.GotFocus += RemovePlaceholderText;
+            textBox_msg.LostFocus += SetPlaceholderText;
+
+            _timer = new Timer();
+            _timer.Interval = 1000;
+            _timer.Tick += Timer_Tick;
         }
 
         private async void FormChat_Load(object sender, EventArgs e)
         {
-            await LoadChatHistory();
         }
 
-        private async void InitializeSignalR()
+        private async void ConnectToServer()
         {
-            _hubConnection = new HubConnectionBuilder()
-                .WithUrl($"https://localhost:7070/chatHub?username={_currentUser}", options =>
+            _connection = new HubConnectionBuilder()
+                .WithUrl("https://localhost:7070/chatHub", options =>
                 {
                     options.AccessTokenProvider = () => Task.FromResult(_accessToken);
                 })
                 .Build();
 
-            _hubConnection.On<string, SingleChat>("ReceiveMessage", (user, message) =>
+            _connection.On<string, string>("ReceiveMessage", (user, message) =>
             {
                 Invoke((Action)(() =>
                 {
-                    string deKey = _rsaService.Decrypt(message.SessionKeyEncrypted[_currentUser], _key);
-                    var content = _aesService.DecryptMessage(message.Content, deKey);
-                    var timestamp = DateTime.Now.ToString("HH:mm:ss - dd/MM/yyyy");
-                    textBox_showmsg.AppendText($"{timestamp}: {user}: {content}{Environment.NewLine}");
+                    textBox_showmsg.AppendText($"{user}: {message}{Environment.NewLine}");
                 }));
             });
 
-            _hubConnection.On<string, string>("ReceiveStatusUpdate", (username, status) =>
-            {
-                Invoke((Action)(() =>
-                {
-                    // Cập nhật trạng thái bạn bè
-                    LoadFriends();
-                }));
-            });
-
-            _hubConnection.Closed += async (error) =>
-            {
-                await Task.Delay(1000);
-                await _hubConnection.StartAsync();
-            };
-
-            await _hubConnection.StartAsync();
-        }
-
-
-        private async void button_send_Click(object sender, EventArgs e)
-        {
-            if (_hubConnection.State != HubConnectionState.Connected)
-            {
-                MessageBox.Show("Không thể gửi tin nhắn. Kết nối đang bị gián đoạn.");
-                return;
-            }
-
-            var message = textBox_msg.Text;
-            
-            var content = _aesService.EncryptMessage(message, aesKey);
-            var senderUser = await _userService.GetUserByUsername(_currentUser);
-            var receiverUser = await _userService.GetUserByUsername(_currentChatUser);
-            var senderKey = _rsaService.Encrypt(aesKey, senderUser.PublicKey);
-            var receiverKey = _rsaService.Encrypt(aesKey, receiverUser.PublicKey);
-            await _hubConnection.InvokeAsync("SendMessage", _currentUser, _currentChatUser, content, senderKey, receiverKey);
-            //await singleChatService.SendMessage(_currentUser , _currentChatUser , message);
-            textBox_msg.Clear();
-        }
-
-        private async Task LoadChatHistory()
-        {
-            if (string.IsNullOrEmpty(_currentChatUser))
-            {
-                return;
-            }
-
-            var messages = await _hubConnection.InvokeAsync<List<SingleChat>>("GetChatHistory", _currentUser, _currentChatUser);
-            
-            foreach (var message in messages)
-            {
-
-                var localTime = message.Timestamp.AddHours(7);
-                var timestamp = localTime.ToString("HH:mm:ss - dd/MM/yyyy");
-                var enKey = message.SessionKeyEncrypted[_currentUser];
-                var key = _rsaService.Decrypt(enKey, _key);
-                var contentMSG = _aesService.DecryptMessage(message.Content, key);
-                textBox_showmsg.AppendText($"{timestamp}: {message.Sender}: {contentMSG}{Environment.NewLine}");
-            }
+            await _connection.StartAsync();
         }
 
         private async void LoadFriends()
         {
-            using (HttpClient client = new HttpClient())
+            var response = await _httpClient.GetAsync($"api/singlechat/get-friend-list/{_username}");
+            var jsonString = await response.Content.ReadAsStringAsync();
+            //MessageBox.Show(jsonString);
+
+            var jsonObject = JsonDocument.Parse(jsonString);
+            var friends = jsonObject.RootElement.GetProperty("data").EnumerateArray().Select(x => x.GetString()).ToList();
+            DisplayFriends(friends);
+        }
+
+        private void DisplayFriends(List<string> friends)
+        {
+            if (friends == null || friends.Count == 0)
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
-                var url = $"https://localhost:7070/api/user/get-friend-list/{_currentUser}";
-                var response = await client.GetAsync(url);
-                if (!response.IsSuccessStatusCode)
+                MessageBox.Show("Không tìm thấy người nào trong danh sách bạn bè của bạn.");
+                return;
+            }
+
+            int yOffset = 30;
+            int panelHeight = 50;
+
+            var totalLabel = new Label
+            {
+                Text = $"Số lượng bạn bè: {friends.Count}",
+                ForeColor = Color.FromArgb(255, 255, 255),
+                AutoSize = true,
+                Location = new Point(10, yOffset),
+                Font = new Font("Arial", 12)
+            };
+            groupBox_doanchat.Controls.Add(totalLabel);
+
+            yOffset += panelHeight;
+
+            foreach (var friend in friends)
+            {
+                var panel = new Panel
                 {
-                    MessageBox.Show($"Error: {response.StatusCode} - {response.ReasonPhrase}");
-                    return;
-                }
-                var responseBody = await response.Content.ReadAsStringAsync();
-                //MessageBox.Show(responseBody);
+                    Size = new Size(350, panelHeight),
+                    Location = new Point(10, yOffset),
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = Color.Indigo,
+                    Tag = friend
+                };
 
-                var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseBody);
-                var friends = jsonResponse.GetProperty("data").EnumerateArray().Select(f => f.GetString()).ToList();
-                var totalFriends = jsonResponse.GetProperty("total").GetInt32();
-
-                if (friends == null || friends.Count == 0)
+                var label = new Label
                 {
-                    MessageBox.Show("Không tìm thấy người nào trong danh sách bạn bè của bạn.");
-                    return;
-                }
-
-                int yOffset = 30;
-                int labelHeight = 45;
-
-                var totalLabel = new Label
-                {
-                    Text = $"Số lượng bạn bè: {totalFriends}",
+                    Text = friend,
                     ForeColor = Color.FromArgb(255, 255, 255),
                     AutoSize = true,
-                    Location = new Point(10, yOffset),
+                    Location = new Point(10, 15),
                     Font = new Font("Arial", 12)
                 };
-                groupBox_doanchat.Controls.Add(totalLabel);
+                panel.Controls.Add(label);
 
-                yOffset += labelHeight;
+                panel.Click += async (s, e) => await SelectFriendPanel(panel);
 
-                foreach (var friend in friends)
+                groupBox_doanchat.Controls.Add(panel);
+
+                yOffset += panelHeight + 5;
+            }
+        }
+
+        private async Task SelectFriendPanel(Panel panel)
+        {
+            if (_selectedPanel != null)
+            {
+                _selectedPanel.BackColor = Color.Indigo;
+                foreach (Control control in _selectedPanel.Controls)
                 {
-                    var friendStatus = await GetFriendStatus(friend);
-                    var labelColor = friendStatus ? Color.FromArgb(0, 255, 0) : Color.FromArgb(255, 255, 255);
-
-                    var label = new Label
+                    if (control is Label label)
                     {
-                        Text = friend,
-                        ForeColor = labelColor,
-                        AutoSize = true,
-                        Location = new Point(10, yOffset),
-                        Font = new Font("Arial", 12)
-                    };
-                    label.Click += (s, e) => LoadChatWithUser(_currentUser, friend);
-                    groupBox_doanchat.Controls.Add(label);
-
-                    yOffset += labelHeight;
+                        label.ForeColor = Color.FromArgb(255, 255, 255);
+                    }
                 }
             }
-        }
 
-        private async Task<bool> GetFriendStatus(string username)
-        {
-            using (HttpClient client = new HttpClient())
+            _selectedPanel = panel;
+            _selectedPanel.BackColor = Color.FromArgb(50, 255, 255);
+            foreach (Control control in _selectedPanel.Controls)
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
-                var url = $"https://localhost:7070/api/user/get-status/{username}";
-                var response = await client.GetAsync(url);
-                if (response.IsSuccessStatusCode)
+                if (control is Label label)
                 {
-                    var responseBody = await response.Content.ReadAsStringAsync();
-                    var jsonResponse = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseBody);
-                    return jsonResponse.GetProperty("opStatus").GetBoolean();
+                    label.ForeColor = Color.Indigo;
                 }
-                return false;
+            }
+
+            var friend = panel.Tag.ToString();
+            await LoadChatHistory(friend);
+            textBox_msg.Enabled = true;
+
+            _timer.Start();
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            _timer.Stop();
+            base.OnFormClosing(e);
+        }
+
+        private async void Timer_Tick(object sender, EventArgs e)
+        {
+            if (_selectedPanel != null && !this.IsDisposed)
+            {
+                var friend = _selectedPanel.Tag.ToString();
+                await LoadChatHistory(friend);
             }
         }
 
-        private async void LoadChatWithUser(string username, string friend)
+        private async Task LoadChatHistory(string friend)
         {
-            _currentChatUser = friend;
-            textBox_otherusrname.Text = friend;
-            textBox_showmsg.Clear();
-            await LoadChatHistory();
+            var response = await _httpClient.GetAsync($"api/singlechat/history/{_username}/{friend}");
+            var chatHistory = await response.Content.ReadFromJsonAsync<List<SingleChat>>();
 
-            var friendStatus = await GetFriendStatus(friend);
-            textBox_otherstatus.Text = friendStatus ? "Đang hoạt động" : "Không hoạt động";
-        }
-
-        private async void comboBox_mystatus_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            var statusString = comboBox_mystatus.SelectedItem.ToString();
-            bool status = statusString == "Đang hoạt động";
-            await UpdateUserStatus(status);
-        }
-
-        private async Task UpdateUserStatus(bool opstatus)
-        {
-            using (HttpClient client = new HttpClient())
+            if (!this.IsDisposed && textBox_showmsg != null && !textBox_showmsg.IsDisposed)
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
-                var url = $"https://localhost:7070/api/user/updateStatus";
-                var json = JsonConvert.SerializeObject(new { Username = _currentUser, OpStatus = opstatus });
-                var content = new StringContent(json, Encoding.UTF8 , "application/json");
-                var response = await client.PostAsync(url, content);
-                var res = await response.Content.ReadAsStringAsync();
-                string msg = JObject.Parse(res)["message"].ToString();
-                //if (!response.IsSuccessStatusCode)
-                //{
-                //    MessageBox.Show($"Error: {msg}");
-                //}
+                textBox_showmsg.Clear();
+                foreach (var chat in chatHistory)
+                {
+                    textBox_showmsg.AppendText($"{chat.Sender}: {chat.Message}{Environment.NewLine}");
+                }
+            }
+        }
+
+        private async void button_send_Click(object sender, EventArgs e)
+        {
+            if (_selectedPanel == null)
+            {
+                MessageBox.Show("Vui lòng chọn một bạn bè để chat.");
+                return;
+            }
+
+            var message = textBox_msg.Text;
+            var receiver = _selectedPanel.Tag.ToString();
+            await _connection.InvokeAsync("SendMessage", _username, receiver, message);
+            textBox_msg.Clear();
+        }
+
+        private void RemovePlaceholderText(object sender, EventArgs e)
+        {
+            if (textBox_msg.Text == "Nhập tin nhắn...")
+            {
+                textBox_msg.Text = "";
+                textBox_msg.ForeColor = Color.White;
+            }
+        }
+
+        private void SetPlaceholderText(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(textBox_msg.Text))
+            {
+                textBox_msg.Text = "Nhập tin nhắn...";
+                textBox_msg.ForeColor = Color.Gray;
             }
         }
 

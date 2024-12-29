@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using PdfiumViewer;
 
 namespace NetStudy.Forms
 {
@@ -15,6 +16,10 @@ namespace NetStudy.Forms
         private string _currentUser;
         private string _selectedDocumentId;
         private string _accessToken;
+        private Panel _previousSelectedPanel;
+        private const int PanelsPerPage = 5;
+        private int _currentPage = 1;
+        private bool isSearchMode = false;
 
         public FormDocument(string accessToken, string username)
         {
@@ -34,30 +39,33 @@ namespace NetStudy.Forms
 
         private async void button_mydcm_Click(object sender, EventArgs e)
         {
+            isSearchMode = false;
+            comboBox_page.Items.Clear();
+            await FetchAndUpdateMyDocumentsAsync();
         }
 
-        private void textBox_search_TextChanged(object sender, EventArgs e)
+        private async Task FetchAndUpdateMyDocumentsAsync()
         {
+            var uploadedDocuments = await GetMyDocumentsAsync();
+            var downloadedDocuments = await GetMyDownloadsAsync();
+            var allDocuments = uploadedDocuments.Concat(downloadedDocuments).ToList();
 
+            if (allDocuments.Count == 0)
+            {
+                MessageBox.Show("Bạn chưa đăng hoặc tải tài liệu nào!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            int totalPages = (int)Math.Ceiling((double)allDocuments.Count / PanelsPerPage);
+            UpdatePage(totalPages);
+            CreateDocumentPanel(allDocuments);
         }
 
-        private async void button_search_Click(object sender, EventArgs e)
-        {
-            await SearchAndUpdateDocumentsAsync();
-        }
-
-        private async Task SearchAndUpdateDocumentsAsync()
-        {
-            string keyword = textBox_search.Text;
-            var documents = await SearchDocumentsAsync(keyword);
-            DisplayDocuments(documents);
-        }
-
-        private async Task<List<Document>> SearchDocumentsAsync(string keyword)
+        private async Task<List<Document>> GetMyDocumentsAsync()
         {
             try
             {
-                var response = await _httpClient.GetAsync($"api/documents/search?keyword={keyword}&username={_currentUser}");
+                var response = await _httpClient.GetAsync($"api/documents/mydocuments?username={_currentUser}");
                 var jsonResponse = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
@@ -66,7 +74,7 @@ namespace NetStudy.Forms
                 }
                 else
                 {
-                    MessageBox.Show($"Error: {response.StatusCode}\n{jsonResponse}", "Search Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show($"Error: {response.StatusCode}\n{jsonResponse}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return new List<Document>();
                 }
             }
@@ -81,34 +89,370 @@ namespace NetStudy.Forms
                 return new List<Document>();
             }
         }
-        private void DisplayDocuments(List<Document> documents)
+
+        private async Task<List<Document>> GetMyDownloadsAsync()
         {
-            panel_body.Controls.Clear();
-            int yOffset = 0;
-
-            foreach (var doc in documents)
+            try
             {
-                var label = new Label
-                {
-                    Text = $"Title: {doc.Title}, Tag: {doc.Tag}, Uploader: {doc.UploaderName}",
-                    AutoSize = true,
-                    Tag = doc.Id,
-                    Font = new Font("Arial", 12, FontStyle.Regular),
-                    Location = new Point(0, yOffset)
-                };
-                label.Click += Label_Click;
-                panel_body.Controls.Add(label);
+                var response = await _httpClient.GetAsync($"api/documents/mydownloads?username={_currentUser}");
+                var jsonResponse = await response.Content.ReadAsStringAsync();
 
-                yOffset += 45;
+                if (response.IsSuccessStatusCode)
+                {
+                    return JsonConvert.DeserializeObject<List<Document>>(jsonResponse);
+                }
+                else
+                {
+                    MessageBox.Show($"Error: {response.StatusCode}\n{jsonResponse}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return new List<Document>();
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                MessageBox.Show($"Request error: {ex.Message}", "Request Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return new List<Document>();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unexpected error: {ex.Message}", "Unexpected Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return new List<Document>();
             }
         }
 
-        private void Label_Click(object sender, EventArgs e)
+        private void textBox_search_TextChanged(object sender, EventArgs e)
         {
-            var label = sender as Label;
-            if (label != null)
+
+        }
+
+        private async void button_search_Click(object sender, EventArgs e)
+        {
+            isSearchMode = true;
+            comboBox_page.Items.Clear();
+            await SearchAndUpdateDocumentsAsync();
+        }
+
+        private async Task SearchAndUpdateDocumentsAsync()
+        {
+            string keyword = textBox_search.Text;
+            var (documents, totalPages) = await SearchDocumentsAsync(keyword);
+            UpdatePage(totalPages);
+            CreateDocumentPanel(documents);
+        }
+
+        private async Task<(List<Document>, int)> SearchDocumentsAsync(string keyword)
+        {
+            try
             {
-                _selectedDocumentId = label.Tag.ToString();
+                var response = await _httpClient.GetAsync($"api/documents/search?keyword={keyword}&username={_currentUser}&pageNumber={_currentPage}&pageSize={PanelsPerPage}");
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var documents = JsonConvert.DeserializeObject<List<Document>>(jsonResponse);
+                    int totalPages = int.Parse(response.Headers.GetValues("X-Total-Pages").FirstOrDefault() ?? "1");
+                    return (documents, totalPages);
+                }
+                else
+                {
+                    MessageBox.Show($"Error: {response.StatusCode}\n{jsonResponse}", "Search Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return (new List<Document>(), 1);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                MessageBox.Show($"Request error: {ex.Message}", "Request Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return (new List<Document>(), 1);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unexpected error: {ex.Message}", "Unexpected Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return (new List<Document>(), 1);
+            }
+        }
+
+        private void UpdatePage(int newTotalPages)
+        {
+            comboBox_page.Items.Clear();
+            for (int i = 1; i <= newTotalPages; i++)
+            {
+                comboBox_page.Items.Add(i);
+            }
+            comboBox_page.Enabled = newTotalPages > 1;
+            comboBox_page.SelectedIndex = _currentPage - 1;
+        }
+
+        private async void comboBox_page_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (comboBox_page.SelectedIndex >= 0)
+            {
+                _currentPage = comboBox_page.SelectedIndex + 1;
+                if (isSearchMode)
+                {
+                    await SearchAndUpdateDocumentsAsync();
+                }
+                else
+                {
+                    await FetchAndUpdateMyDocumentsAsync();
+                }
+            }
+        }
+
+        private async void button_previous_Click(object sender, EventArgs e)
+        {
+            if (_currentPage > 1)
+            {
+                _currentPage--;
+                comboBox_page.SelectedIndex = _currentPage - 1;
+                if (isSearchMode)
+                {
+                    await SearchAndUpdateDocumentsAsync();
+                }
+                else
+                {
+                    await FetchAndUpdateMyDocumentsAsync();
+                }
+            }
+            else
+            {
+                MessageBox.Show("Đây là trang đầu tiên!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private async void button_next_Click(object sender, EventArgs e)
+        {
+            if (_currentPage < comboBox_page.Items.Count)
+            {
+                _currentPage++;
+                comboBox_page.SelectedIndex = _currentPage - 1;
+                if (isSearchMode)
+                {
+                    await SearchAndUpdateDocumentsAsync();
+                }
+                else
+                {
+                    await FetchAndUpdateMyDocumentsAsync();
+                }
+            }
+            else
+            {
+                MessageBox.Show("Đã là trang cuối cùng!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void CreateDocumentPanel(List<Document> documents)
+        {
+            panel_body.SuspendLayout();
+            panel_body.Controls.Clear();
+            int yOffset = 0;
+            int panelHeight = (panel_body.Height - (PanelsPerPage - 1) * 10) / PanelsPerPage;
+
+            int startIndex = (_currentPage - 1) * PanelsPerPage;
+            int endIndex = Math.Min(startIndex + PanelsPerPage, documents.Count);
+
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                var document = documents[i];
+
+                Panel documentPanel = new Panel
+                {
+                    Width = panel_body.Width - 20,
+                    Height = panelHeight,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    Padding = new Padding(10),
+                    Margin = new Padding(5),
+                    BackColor = Color.Indigo,
+                    Location = new Point(10, yOffset),
+                    Tag = document.Id
+                };
+
+                documentPanel.Click += Panel_Click;
+
+                Label lblTitle = new Label
+                {
+                    Text = $"Tiêu đề: {document.Title}",
+                    AutoSize = true,
+                    Font = new Font("Arial", 12, FontStyle.Bold),
+                    ForeColor = Color.Gainsboro
+                };
+
+                Label lblTag = new Label
+                {
+                    Text = $"Mục: {document.Tag}",
+                    AutoSize = true,
+                    Font = new Font("Arial", 10),
+                    ForeColor = Color.Gainsboro
+                };
+
+                Label lblUploader = new Label
+                {
+                    Text = $"Người đăng tài: {document.UploaderName}",
+                    AutoSize = true,
+                    Font = new Font("Arial", 10),
+                    ForeColor = Color.Gainsboro
+                };
+
+                if (!document.Title.EndsWith("mp4") && !document.Title.EndsWith("mp3"))
+                {
+                    Button btnDetails = new Button
+                    {
+                        Text = "...",
+                        Size = new Size(50, 30),
+                        Location = new Point(documentPanel.Width - 60, 35),
+                        BackColor = Color.FromArgb(0, 117, 214),
+                        ForeColor = Color.Gainsboro,
+                        FlatStyle = FlatStyle.Flat,
+                        Cursor = Cursors.Hand
+                    };
+                    btnDetails.Click += (sender, e) => ShowDocumentDetails(document.Id);
+                    documentPanel.Controls.Add(btnDetails);
+                }
+
+                documentPanel.Controls.Add(lblTitle);
+                lblTitle.Location = new Point(10, 10);
+                documentPanel.Controls.Add(lblTag);
+                lblTag.Location = new Point(10, 40);
+                documentPanel.Controls.Add(lblUploader);
+                lblUploader.Location = new Point(10, 70);
+
+                panel_body.Controls.Add(documentPanel);
+                yOffset += documentPanel.Height + 10;
+            }
+
+            panel_body.ResumeLayout();
+        }
+
+        private void Panel_Click(object sender, EventArgs e)
+        {
+            var panel = sender as Panel;
+            if (panel != null)
+            {
+                if (_previousSelectedPanel != null)
+                {
+                    _previousSelectedPanel.BackColor = Color.Indigo;
+                    foreach (Control control in _previousSelectedPanel.Controls)
+                    {
+                        if (control is Label)
+                        {
+                            control.ForeColor = Color.Gainsboro;
+                        }
+                    }
+                }
+
+                _selectedDocumentId = panel.Tag.ToString();
+
+                panel.BackColor = Color.FromArgb(50, 255, 255);
+                foreach (Control control in panel.Controls)
+                {
+                    if (control is Label)
+                    {
+                        control.ForeColor = Color.Indigo;
+                    }
+                }
+
+                _previousSelectedPanel = panel;
+
+                // MessageBox.Show($"Selected Document ID: {_selectedDocumentId}");
+            }
+        }
+
+        private async void ShowDocumentDetails(string documentId)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync($"api/documents/content/{documentId}");
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsByteArrayAsync();
+                    var tempFilePath = Path.GetTempFileName();
+
+                    File.WriteAllBytes(tempFilePath, content);
+
+                    var document = await GetDocumentDetailsAsync(documentId);
+                    if (document.Title.EndsWith(".pdf"))
+                    {
+                        var pdfViewer = new PdfViewer();
+                        pdfViewer.Document = PdfDocument.Load(tempFilePath);
+                        var pdfForm = new Form
+                        {
+                            Text = "PDF Viewer - NetStudy",
+                            Width = 800,
+                            Height = 600,
+                            StartPosition = FormStartPosition.CenterScreen
+                        };
+                        pdfViewer.Dock = DockStyle.Fill;
+                        pdfForm.Controls.Add(pdfViewer);
+                        pdfForm.Show();
+                    }
+                    else if (document.Title.EndsWith(".docx"))
+                    {
+                        var doc = new Aspose.Words.Document(tempFilePath);
+                        var pdfPath = Path.ChangeExtension(tempFilePath, ".pdf");
+                        doc.Save(pdfPath);
+
+                        var pdfViewer = new PdfViewer();
+                        pdfViewer.Document = PdfDocument.Load(pdfPath);
+                        var pdfForm = new Form
+                        {
+                            Text = "PDF Viewer - NetStudy",
+                            Width = 800,
+                            Height = 600,
+                            StartPosition = FormStartPosition.CenterScreen
+                        };
+                        pdfViewer.Dock = DockStyle.Fill;
+                        pdfForm.Controls.Add(pdfViewer);
+                        pdfForm.Show();
+                    }
+                    else if (document.Title.EndsWith(".jpg") || document.Title.EndsWith(".png"))
+                    {
+                        var imageForm = new Form
+                        {
+                            Text = "Image Viewer - NetStudy",
+                            Width = 800,
+                            Height = 600,
+                            StartPosition = FormStartPosition.CenterScreen
+                        };
+                        var pictureBox = new PictureBox
+                        {
+                            Image = Image.FromFile(tempFilePath),
+                            Dock = DockStyle.Fill,
+                            SizeMode = PictureBoxSizeMode.Zoom
+                        };
+                        imageForm.Controls.Add(pictureBox);
+                        imageForm.Show();
+                    }
+                    else if (document.Title.EndsWith(".txt"))
+                    {
+                        var textForm = new Form
+                        {
+                            Text = "Text Viewer - NetStudy",
+                            Width = 800,
+                            Height = 600,
+                            StartPosition = FormStartPosition.CenterScreen
+                        };
+                        var textBox = new TextBox
+                        {
+                            Multiline = true,
+                            ReadOnly = true,
+                            Dock = DockStyle.Fill,
+                            ScrollBars = ScrollBars.Both,
+                            Text = File.ReadAllText(tempFilePath)
+                        };
+                        textForm.Controls.Add(textBox);
+                        textForm.Show();
+                    }
+                    else
+                    {
+                        MessageBox.Show("Không hỗ trợ định dạng tệp này.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show($"Error: {response.StatusCode}\n{await response.Content.ReadAsStringAsync()}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unexpected error: {ex.Message}", "Unexpected Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -140,8 +484,9 @@ namespace NetStudy.Forms
 
                     using (var saveFileDialog = new SaveFileDialog())
                     {
-                        saveFileDialog.Filter = "All files (*.*)|*.*";
-                        saveFileDialog.Title = "Save Document";
+                        saveFileDialog.Filter = "PDF files (*.pdf)|*.pdf|Word documents (*.docx)|*.docx|Text files (*.txt)|*.txt|PowerPoint files (*.pptx)|*.pptx|Excel files (*.xlsx)|*.xlsx|Image files (*.png;*.jpg)|*.png;*.jpg|Audio files (*.mp3)|*.mp3|Video files (*.mp4)|*.mp4|RAR files (*.rar)|*.rar|ZIP files (*.zip)|*.zip|All files (*.*)|*.*";
+                        saveFileDialog.Title = "Lưu tài liệu";
+                        MessageBox.Show("Hãy chọn đúng định dạng tệp cần lưu!");
 
                         if (saveFileDialog.ShowDialog() == DialogResult.OK)
                         {
@@ -149,7 +494,7 @@ namespace NetStudy.Forms
                             {
                                 await stream.CopyToAsync(fileStream);
                             }
-                            MessageBox.Show("Document downloaded successfully.");
+                            MessageBox.Show("Tải xuống thành công.");
                         }
                     }
                 }
@@ -181,12 +526,12 @@ namespace NetStudy.Forms
                 }
                 else
                 {
-                    MessageBox.Show("You can only edit documents that you have uploaded.");
+                    MessageBox.Show("Bạn chỉ có thể chỉnh sửa tài liệu mà mình đăng tải.");
                 }
             }
             else
             {
-                MessageBox.Show("Please select a document to edit.");
+                MessageBox.Show("Hãy chọn một tài liệu trước khi chinh sửa.", "Edit Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -203,7 +548,7 @@ namespace NetStudy.Forms
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    MessageBox.Show("Document not found. It may have been deleted.", "Get Document Details Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Tài liệu không tồn tại.", "Get Document Details Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return null;
                 }
                 else
@@ -236,16 +581,16 @@ namespace NetStudy.Forms
                 }
                 else if (document == null)
                 {
-                    MessageBox.Show($"Document not found or you do not have permission to delete it.\nDocument ID: {documentId}\nUploader: {document?.UploaderName}", "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show($"Tài liệu không tồn tại.", "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 else
                 {
-                    MessageBox.Show($"You can only delete documents that you have uploaded.\nDocument ID: {documentId}\nUploader: {document.UploaderName}", "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show($"Bạn chỉ có thể xóa tài liệu mà mình đăng tải.\nDocument ID: {documentId}\nUploader: {document.UploaderName}", "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             else
             {
-                MessageBox.Show("Please select a document to delete.", "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Hãy chọn một tài liệu trước khi xóa.", "Delete Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -258,7 +603,7 @@ namespace NetStudy.Forms
 
                 if (response.IsSuccessStatusCode)
                 {
-                    MessageBox.Show($"Document deleted successfully.\nDocument ID: {documentId}");
+                    MessageBox.Show($"Xóa tài liệu thành công.\nDocument ID: {documentId}");
                     await SearchAndUpdateDocumentsAsync();
                 }
                 else
