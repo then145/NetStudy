@@ -44,7 +44,7 @@
             btn_send.FlatStyle = FlatStyle.Flat;
             btn_send.Font = new Font("Cambria", 10F, FontStyle.Bold);
             btn_send.ForeColor = Color.Gainsboro;
-            btn_send.Location = new Point(708, 12);
+            btn_send.Location = new Point(714, 44);
             btn_send.Name = "btn_send";
             btn_send.Size = new Size(94, 29);
             btn_send.TabIndex = 2;
@@ -59,7 +59,7 @@
             btn_clear2.FlatStyle = FlatStyle.Flat;
             btn_clear2.Font = new Font("Cambria", 10F, FontStyle.Bold);
             btn_clear2.ForeColor = Color.Gainsboro;
-            btn_clear2.Location = new Point(814, 12);
+            btn_clear2.Location = new Point(827, 43);
             btn_clear2.Name = "btn_clear2";
             btn_clear2.Size = new Size(94, 29);
             btn_clear2.TabIndex = 6;
@@ -70,7 +70,7 @@
             // btn_upload
             // 
             btn_upload.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btn_upload.Location = new Point(708, 51);
+            btn_upload.Location = new Point(714, 79);
             btn_upload.Name = "btn_upload";
             btn_upload.Size = new Size(94, 29);
             btn_upload.TabIndex = 7;
@@ -81,17 +81,17 @@
             // tB_filepath
             // 
             tB_filepath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            tB_filepath.Location = new Point(137, 51);
+            tB_filepath.Location = new Point(12, 78);
             tB_filepath.Name = "tB_filepath";
-            tB_filepath.Size = new Size(538, 27);
+            tB_filepath.Size = new Size(688, 27);
             tB_filepath.TabIndex = 8;
             // 
             // tB_message
             // 
             tB_message.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            tB_message.Location = new Point(137, 12);
+            tB_message.Location = new Point(12, 45);
             tB_message.Name = "tB_message";
-            tB_message.Size = new Size(538, 27);
+            tB_message.Size = new Size(688, 27);
             tB_message.TabIndex = 9;
             // 
             // lbl_username
@@ -100,7 +100,7 @@
             lbl_username.FlatStyle = FlatStyle.Popup;
             lbl_username.Font = new Font("Cambria", 11F);
             lbl_username.ForeColor = Color.Gainsboro;
-            lbl_username.Location = new Point(37, 15);
+            lbl_username.Location = new Point(12, 9);
             lbl_username.Name = "lbl_username";
             lbl_username.Size = new Size(94, 22);
             lbl_username.TabIndex = 10;
@@ -109,9 +109,9 @@
             // tB_respones
             // 
             tB_respones.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            tB_respones.Location = new Point(12, 86);
+            tB_respones.Location = new Point(12, 120);
             tB_respones.Name = "tB_respones";
-            tB_respones.Size = new Size(932, 579);
+            tB_respones.Size = new Size(932, 545);
             tB_respones.TabIndex = 11;
             tB_respones.Text = "";
             // 

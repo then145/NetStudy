@@ -109,7 +109,7 @@ namespace NetStudy.Forms
             foreach (var task in tasks)
             {
                 int rowIndex = dataGridView1.Rows.Add(
-                    "", 
+                    "",
                     task.Description,
                     task.Category,
                     task.StartDate.ToString("dd/MM/yyyy"),
@@ -200,6 +200,15 @@ namespace NetStudy.Forms
                         return;
                     }
 
+                    //Ngày kết thúc không thể nhỏ hơn ngày bắt đầu
+                    if (endDate < startDate)
+                    {
+                        MessageBox.Show($"Ngày kết thúc không thể nhỏ hơn ngày bắt đầu ở dòng {row.Index + 1}.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        dataGridView1.CurrentCell = row.Cells["EndDate"];
+                        dataGridView1.BeginEdit(true);
+                        return;
+                    }
+
                     var originalDescription = descriptions.ContainsKey(row.Index) ? descriptions[row.Index] : null;
 
                     var existingTask = await taskService.IsTaskExist(UserInfo["username"].ToString(), originalDescription);
@@ -222,7 +231,6 @@ namespace NetStudy.Forms
                         }
                         else
                         {
-                            MessageBox.Show($"Cập nhật thất bại: {description}");
                         }
                     }
                     else
@@ -268,6 +276,26 @@ namespace NetStudy.Forms
             if (e.RowIndex >= 0 && e.ColumnIndex == dataGridView1.Columns["Index"].Index)
             {
                 e.Value = e.RowIndex + 1;
+            }
+        }
+
+        private async void btn_done_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var tasks = await taskService.GetTaskIsCompleted(UserInfo["username"].ToString());
+                if (tasks != null && tasks.Count > 0)
+                {
+                    DisplayTasks(tasks);
+                }
+                else
+                {
+                    MessageBox.Show("No tasks found", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

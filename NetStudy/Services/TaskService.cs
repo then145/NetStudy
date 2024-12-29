@@ -111,6 +111,29 @@ namespace NetStudy.Services
             }
         }
 
+        public async Task <List<TaskDTO>> GetTaskIsCompleted(string username)
+        {
+            try
+            {
+                var response = await httpClient.GetAsync($"api/user-task/{username}/get-task-iscompleted");
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonObject = JsonConvert.DeserializeObject<JObject>(content);
+                    var tasks = jsonObject["tasks"].ToObject<List<TaskDTO>>();
+                    return tasks;
+                }
+                else
+                {
+                    throw new Exception(content);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
         public async Task<List<TaskDTO>> GetTaskByDate(string username, DateTime date)
         {
             try

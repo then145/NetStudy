@@ -47,6 +47,7 @@
             IsCompleted = new DataGridViewCheckBoxColumn();
             panel2 = new Panel();
             lbl_username = new Label();
+            btn_done = new Button();
             panel1.SuspendLayout();
             groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dataGridView1).BeginInit();
@@ -57,7 +58,7 @@
             // 
             monthCalendar1.BackColor = Color.White;
             monthCalendar1.ForeColor = Color.White;
-            monthCalendar1.Location = new Point(18, 101);
+            monthCalendar1.Location = new Point(45, 86);
             monthCalendar1.Name = "monthCalendar1";
             monthCalendar1.TabIndex = 0;
             monthCalendar1.DateChanged += monthCalendar1_DateChanged;
@@ -76,6 +77,7 @@
             // 
             // groupBox1
             // 
+            groupBox1.Controls.Add(btn_done);
             groupBox1.Controls.Add(btn_save);
             groupBox1.Controls.Add(btn_create);
             groupBox1.Controls.Add(btn_pending);
@@ -84,7 +86,7 @@
             groupBox1.ForeColor = Color.Violet;
             groupBox1.Location = new Point(18, 320);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(262, 326);
+            groupBox1.Size = new Size(262, 281);
             groupBox1.TabIndex = 2;
             groupBox1.TabStop = false;
             groupBox1.Text = "Option";
@@ -94,9 +96,9 @@
             btn_save.FlatStyle = FlatStyle.Flat;
             btn_save.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btn_save.ForeColor = Color.Violet;
-            btn_save.Location = new Point(0, 254);
+            btn_save.Location = new Point(0, 226);
             btn_save.Name = "btn_save";
-            btn_save.Size = new Size(262, 58);
+            btn_save.Size = new Size(262, 44);
             btn_save.TabIndex = 5;
             btn_save.Text = "Save";
             btn_save.UseVisualStyleBackColor = true;
@@ -107,9 +109,9 @@
             btn_create.FlatStyle = FlatStyle.Flat;
             btn_create.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btn_create.ForeColor = Color.Violet;
-            btn_create.Location = new Point(0, 184);
+            btn_create.Location = new Point(0, 176);
             btn_create.Name = "btn_create";
-            btn_create.Size = new Size(262, 58);
+            btn_create.Size = new Size(262, 44);
             btn_create.TabIndex = 4;
             btn_create.Text = "Edit";
             btn_create.UseVisualStyleBackColor = true;
@@ -120,9 +122,9 @@
             btn_pending.BackColor = Color.FromArgb(26, 25, 65);
             btn_pending.FlatStyle = FlatStyle.Flat;
             btn_pending.Font = new Font("Microsoft Sans Serif", 12F);
-            btn_pending.Location = new Point(0, 109);
+            btn_pending.Location = new Point(0, 76);
             btn_pending.Name = "btn_pending";
-            btn_pending.Size = new Size(262, 58);
+            btn_pending.Size = new Size(262, 44);
             btn_pending.TabIndex = 1;
             btn_pending.Text = "Pending";
             btn_pending.UseVisualStyleBackColor = false;
@@ -133,9 +135,9 @@
             btn_all.BackColor = Color.FromArgb(26, 25, 62);
             btn_all.FlatStyle = FlatStyle.Flat;
             btn_all.Font = new Font("Microsoft Sans Serif", 12F);
-            btn_all.Location = new Point(0, 31);
+            btn_all.Location = new Point(0, 26);
             btn_all.Name = "btn_all";
-            btn_all.Size = new Size(262, 58);
+            btn_all.Size = new Size(262, 44);
             btn_all.TabIndex = 0;
             btn_all.Text = "All";
             btn_all.UseVisualStyleBackColor = false;
@@ -251,6 +253,19 @@
             lbl_username.TabIndex = 6;
             lbl_username.Text = "UserName";
             // 
+            // btn_done
+            // 
+            btn_done.FlatStyle = FlatStyle.Flat;
+            btn_done.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btn_done.ForeColor = Color.Violet;
+            btn_done.Location = new Point(0, 126);
+            btn_done.Name = "btn_done";
+            btn_done.Size = new Size(262, 44);
+            btn_done.TabIndex = 6;
+            btn_done.Text = "Completed";
+            btn_done.UseVisualStyleBackColor = true;
+            btn_done.Click += btn_done_Click;
+            // 
             // FormDashboard
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -292,5 +307,6 @@
         private DataGridViewTextBoxColumn StartDate;
         private DataGridViewTextBoxColumn EndDate;
         private DataGridViewCheckBoxColumn IsCompleted;
+        private Button btn_done;
     }
 }

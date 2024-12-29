@@ -133,12 +133,12 @@
             // 
             // btn_AI
             // 
-            btn_AI.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            btn_AI.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btn_AI.BackColor = Color.FromArgb(0, 117, 214);
             btn_AI.Font = new Font("Impact", 9F);
             btn_AI.ForeColor = Color.White;
             btn_AI.Image = (Image)resources.GetObject("btn_AI.Image");
-            btn_AI.Location = new Point(146, 540);
+            btn_AI.Location = new Point(732, 537);
             btn_AI.Name = "btn_AI";
             btn_AI.Size = new Size(84, 46);
             btn_AI.TabIndex = 9;
