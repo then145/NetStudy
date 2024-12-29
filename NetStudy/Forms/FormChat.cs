@@ -37,6 +37,7 @@ namespace NetStudy.Forms
             textBox_msg.ForeColor = Color.Gray;
             textBox_msg.Enabled = false;
 
+            textBox_myusrname.Text = _username;
             textBox_msg.GotFocus += RemovePlaceholderText;
             textBox_msg.LostFocus += SetPlaceholderText;
 
@@ -158,6 +159,7 @@ namespace NetStudy.Forms
 
             var friend = panel.Tag.ToString();
             await LoadChatHistory(friend);
+            textBox_otherusrname.Text = friend;
             textBox_msg.Enabled = true;
 
             _timer.Start();

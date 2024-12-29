@@ -213,7 +213,7 @@
             btnDashboard.Padding = new Padding(10, 0, 20, 0);
             btnDashboard.Size = new Size(220, 60);
             btnDashboard.TabIndex = 1;
-            btnDashboard.Text = "Tổng quan";
+            btnDashboard.Text = "Cá nhân";
             btnDashboard.TextAlign = ContentAlignment.MiddleLeft;
             btnDashboard.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnDashboard.UseVisualStyleBackColor = true;

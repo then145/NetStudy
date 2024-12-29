@@ -166,7 +166,15 @@ namespace NetStudy
 
         private async void btnSearch_Click(object sender, EventArgs e)
         {
-            await LoadGroupSearching(txtSearchGroup.Text, currPage); 
+            string keyword = txtSearchGroup.Text;
+
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                MessageBox.Show("Hãy nhập từ khóa để tìm kiếm!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            await LoadGroupSearching(keyword, currPage);
         }
 
         private void txtSearchGroup_TextChanged(object sender, EventArgs e)
@@ -176,23 +184,21 @@ namespace NetStudy
 
         private void UpdatePage(int newTotalPages)
         {
-
             comboBox1.Items.Clear();
             for (int i = 1; i <= newTotalPages; i++)
             {
                 comboBox1.Items.Add(i);
             }
             comboBox1.Enabled = newTotalPages > 1;
-
         }
 
         private async void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if(comboBox1.SelectedIndex >= 0)
-            { 
+            if (comboBox1.SelectedIndex >= 0)
+            {
                 currPage = comboBox1.SelectedIndex + 1;
                 await LoadGroupSearching(txtSearchGroup.Text, currPage);
-            }    
+            }
         }
     }
 }
