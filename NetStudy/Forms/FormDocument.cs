@@ -134,6 +134,13 @@ namespace NetStudy.Forms
         private async Task SearchAndUpdateDocumentsAsync()
         {
             string keyword = textBox_search.Text;
+
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                MessageBox.Show("Hãy nhập từ khóa để tìm kiếm!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             var (documents, totalPages) = await SearchDocumentsAsync(keyword);
             UpdatePage(totalPages);
             CreateDocumentPanel(documents);
