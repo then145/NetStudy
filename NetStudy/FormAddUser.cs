@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+﻿using iTextSharp.text.pdf;
+using Microsoft.AspNetCore.SignalR.Client;
 using NetStudy.Services;
 using System;
 using System.Collections.Generic;
@@ -29,7 +30,9 @@ namespace NetStudy
             BaseAddress = new Uri(@"https://localhost:7070/"),
             Timeout = TimeSpan.FromMinutes(5)
         };
-        public FormAddUser(string token, string grName, string id, string username, string role)
+        private readonly AesService aesService;
+        private string aesKey;
+        public FormAddUser(string token, string grName, string id, string username, string role, string key)
         {
             InitializeComponent();
             accessToken = token;
@@ -38,12 +41,14 @@ namespace NetStudy
             lblName.Text = groupName;
             groupService = new GroupService(accessToken);
             userService = new UserService(accessToken);
+            aesService = new AesService();
             name = username;
             comboRole.Items.Add("User");
             if (role == "001" || role == "003")
             {
                 comboRole.Items.Add("Admin");
             }
+            aesKey = key;
             
             comboRole.SelectedIndex = 0;
             roleUser = role;
@@ -89,7 +94,8 @@ namespace NetStudy
             var check = await groupService.AddUserToGroup(groupId, username, roleSelected, user.Name);
             if(check)
             {
-                await connection.InvokeAsync("SendMessageGroup", groupId, "Thông báo", $"{name} đã thêm {username} là {roleSelected}");
+                var content = aesService.EncryptMessage($"{name} đã thêm {username} là {roleSelected}", aesKey);
+                await connection.InvokeAsync("SendMessageGroup", groupId, "Thông báo", content);
               
             }    
             

@@ -648,26 +648,31 @@ namespace API_Server.Controllers
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
+            
             if (string.IsNullOrEmpty(request.Email) ||
                 string.IsNullOrEmpty(request.Otp) ||
-                string.IsNullOrEmpty(request.NewPassword) ||
-                string.IsNullOrEmpty(request.ConfirmPassword))
-            {
-                return BadRequest(new { Success = false, Message = "Thông tin không được để trống." });
-            }
+                string.IsNullOrEmpty(request.NewPassword))
+                {
+                    return BadRequest(new { Success = false, Message = "Thông tin không được để trống." });
+                }
 
             var result = await _userService.ResetPasswordAsync(
                 request.Email,
                 request.Otp,
                 request.NewPassword,
-                request.ConfirmPassword
+                request.PublicKey,
+                request.PrivateKey,
+                request.Salt
             );
-
+            
             if (!result.Success)
             {
-                return BadRequest(result.Message);
+                return BadRequest(new
+                {
+                    message = result.Message
+                });
             }
-
+            
             return Ok(new { Success = true, Message = "Đổi mật khẩu thành công!" });
         }
 
@@ -708,11 +713,17 @@ namespace API_Server.Controllers
                     message = "Yêu cầu không hợp lệ!"
                 });
             }
-
+            Console.WriteLine(request.Username);
+            Console.WriteLine(request.CurrentPassword);
+            Console.WriteLine(request.NewPassword);
+            Console.WriteLine(request.Otp);
+            Console.WriteLine(request.PublicKey);
+            Console.WriteLine(request.PrivateKey);
+            Console.WriteLine(request.Salt);
             if (string.IsNullOrEmpty(request.Username) ||
                 string.IsNullOrEmpty(request.CurrentPassword) ||
                 string.IsNullOrEmpty(request.NewPassword) ||
-                string.IsNullOrEmpty(request.ConfirmPassword) ||
+                string.IsNullOrEmpty(request.PublicKey) ||
                 string.IsNullOrEmpty(request.Otp))
             {
                 return BadRequest(new { Success = false, Message = "Tất cả các trường đều là bắt buộc." });
@@ -722,16 +733,24 @@ namespace API_Server.Controllers
                 request.Username,
                 request.CurrentPassword,
                 request.NewPassword,
-                request.ConfirmPassword,
-                request.Otp
+                request.Otp,
+                request.PublicKey,
+                request.PrivateKey,
+                request.Salt
             );
 
             if (!result.Success)
             {
-                return BadRequest(result);
+                return BadRequest(new
+                {
+                    message = result.Message
+                });
             }
 
-            return Ok(result);
+            return Ok(new
+            {
+                message = result.Message,
+            });
         }
 
         //PATCH METHOD

@@ -334,6 +334,7 @@ namespace API_Server.Services
                 }    
                 group.Members.Remove(member);
                 user.ChatGroup.Remove(groupId);
+                group.SessionKeyEncrypted.Clear();
                 await UpdateGroup(group);
                 await _userService.UpdateUser(user);
                 return true;

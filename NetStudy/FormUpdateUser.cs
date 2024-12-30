@@ -20,6 +20,8 @@ namespace NetStudy
     {
         private UpdateUserDTO updateUserDTO = new UpdateUserDTO();
         private readonly UserService userService;
+        private readonly RsaService rsaService;
+        private readonly AesService aesService;
         private string accessToken;
         private string avatarPath = "";
         private readonly JObject UserInfo;
@@ -32,6 +34,8 @@ namespace NetStudy
             InitializeComponent();
             accessToken = token;
             userService = new UserService(accessToken);
+            rsaService = new RsaService();
+            aesService = new AesService();
             UserInfo = info;
         }
 
@@ -194,7 +198,10 @@ namespace NetStudy
             {
                 if (result)
                 {
-                    ChangePassword changePassword = new ChangePassword(username, accessToken, userService);
+                    var (publicKey, privateKey) = rsaService.GenerateKeys();
+
+                    
+                    ChangePassword changePassword = new ChangePassword(username, accessToken, userService, publicKey , privateKey);
                     changePassword.ShowDialog();
                 }
                 else

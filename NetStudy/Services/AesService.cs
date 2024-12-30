@@ -23,11 +23,6 @@ namespace NetStudy.Services
             _key = key;
             _iv = iv;
         }
-
-        
-
-       
-
         public string EncryptMessage(string plainText, string key)
         {
             using (Aes aes = Aes.Create())

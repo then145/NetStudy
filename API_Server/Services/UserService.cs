@@ -2,6 +2,8 @@
 using API_Server.DTOs;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using NetStudy.Services;
+using Org.BouncyCastle.Asn1.Ocsp;
 
 namespace API_Server.Services
 {
@@ -14,15 +16,19 @@ namespace API_Server.Services
 
         private EmailService emailService;
         private ImageService imageService;
+        private RsaService rsaService;
+        private AesService aesService;
         private readonly Dictionary<string, User> _users;
 
 
-        public UserService(MongoDbService db, EmailService email, ImageService imgService) {
+        public UserService(MongoDbService db, EmailService email, ImageService imgService, RsaService rs, AesService ae) {
             users = db.Users;
             groups = db.ChatGroup;
             otps = db.Otp;
             emailService = email;
             imageService = imgService;
+            rsaService = rs;
+            aesService = ae;
             _users = new Dictionary<string, User>();
             _downloads = db.Downloads;
         }
@@ -477,24 +483,24 @@ namespace API_Server.Services
             return (true, "OTP đã được gửi đến email của bạn.");
         }
 
-        public async Task<(bool Success, string Message)> ResetPasswordAsync(string email, string otp, string newPassword, string confirmPassword)
+        public async Task<(bool Success, string Message)> ResetPasswordAsync(string email, string otp, string newPassword, string publicKey, string privateKey, string salt)
         {
             var otpEntry = await otps.Find(o => o.Email == email && o.Code == otp).FirstOrDefaultAsync();
             if (otpEntry == null)
             {
                 return (false, "OTP không hợp lệ.");
             }
+           
 
-            if (newPassword != confirmPassword)
-            {
-                return (false, "Mật khẩu mới và xác nhận mật khẩu không khớp.");
-            }
 
             var filter = Builders<User>.Filter.Eq(u => u.Email, email);
 
-            var hashedNewPassword = BCrypt.Net.BCrypt.HashPassword(newPassword);
 
-            var update = Builders<User>.Update.Set(u => u.PasswordHash, hashedNewPassword);
+            var update = Builders<User>.Update
+                .Set(u => u.PasswordHash, newPassword)
+                .Set(u => u.PublicKey, publicKey)
+                .Set(u => u.PrivateKey, privateKey)
+                .Set(u => u.Salt, salt);
 
             var result = await users.UpdateOneAsync(filter, update);
 
@@ -504,7 +510,7 @@ namespace API_Server.Services
             }
 
             await otps.DeleteOneAsync(o => o.Id == otpEntry.Id);
-
+           
             return (true, "Thay đổi mật khẩu thành công.");
         }
 
@@ -534,7 +540,7 @@ namespace API_Server.Services
             return (true, "OTP đã được gửi đến email của bạn.");
         }
 
-        public async Task<(bool Success, string Message)> ChangePasswordWithOtpAsync(string username, string currentPassword, string newPassword, string confirmPassword, string otp)
+        public async Task<(bool Success, string Message)> ChangePasswordWithOtpAsync(string username, string currentPassword, string newPassword, string otp, string publicKey, string privateKey, string salt)
         {
             var user = await users.Find(u => u.Username == username).FirstOrDefaultAsync();
 
@@ -548,10 +554,6 @@ namespace API_Server.Services
                 return (false, "Mật khẩu hiện tại không hợp lệ.");
             }
 
-            if (newPassword != confirmPassword)
-            {
-                return (false, "Mật khẩu mới và xác nhận mật khẩu không khớp.");
-            }
 
             var otpEntry = await otps.Find(o => o.Email == user.Email && o.Code == otp).FirstOrDefaultAsync();
 
@@ -559,11 +561,14 @@ namespace API_Server.Services
                 return (false, "OTP không hợp lệ.");
             }
 
-            var hashedNewPassword = BCrypt.Net.BCrypt.HashPassword(newPassword);
 
             var filter = Builders<User>.Filter.Eq(u => u.Username, username);
 
-            var update = Builders<User>.Update.Set(u => u.PasswordHash, hashedNewPassword);
+            var update = Builders<User>.Update
+                .Set(u => u.PasswordHash, newPassword)
+                .Set(u => u.PublicKey,publicKey)
+                .Set(u => u.PrivateKey, privateKey)
+                .Set(u => u.Salt, salt);
 
             var result = await users.UpdateOneAsync(filter, update);
 

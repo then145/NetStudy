@@ -185,7 +185,8 @@ namespace NetStudy
                 GroupInfo["name"].ToString(),
                 GroupInfo["id"].ToString(),
                 UserInfo["name"].ToString(),
-                roleUser
+                roleUser,
+                aesKey
             );
             formAdd.ShowDialog();
         }
@@ -197,7 +198,7 @@ namespace NetStudy
 
         private void btnMemberList_Click(object sender, EventArgs e)
         {
-            FormMemberList memList = new FormMemberList(accessToken, groupId, roleUser, UserInfo["username"].ToString());
+            FormMemberList memList = new FormMemberList(accessToken, groupId, roleUser, UserInfo["username"].ToString(), aesKey);
             memList.ShowDialog();
         }
 

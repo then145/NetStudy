@@ -356,22 +356,26 @@ namespace NetStudy.Services
             }
         }
 
-        public async Task<bool> ChangePasswordWithOtp(string username, string otp, string currentPassword, string newPassword, string confirmPassword)
+        public async Task<bool> ChangePasswordWithOtp(string username, string otp, string currentPassword, string newPassword, string confirmPassword, string publickey, string privatekey, string salt)
         {
             try
             {
+                var hashedNewPassword = BCrypt.Net.BCrypt.HashPassword(newPassword);
                 var model = new
                 {
                     Username = username,
                     Otp = otp,
                     CurrentPassword = currentPassword,
-                    NewPassword = newPassword,
-                    ConfirmPassword = confirmPassword,
+                    NewPassword = hashedNewPassword,
+                    PublicKey = publickey,
+                    Privatekey = privatekey,
+                    Salt = salt
                 };
                 var json = JsonConvert.SerializeObject(model);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 var response = await httpClient.PostAsync("api/user/change-password-with-otp", content);
                 var res = await response.Content.ReadAsStringAsync();
+                var msg = JObject.Parse(res)["message"].ToString();
                 if (response.IsSuccessStatusCode)
                 {
                     MessageBox.Show("Đổi mật khẩu thành công!");
@@ -379,7 +383,7 @@ namespace NetStudy.Services
                 }
                 else
                 {
-                    MessageBox.Show("Mã OTP không đúng!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(msg, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return false;
                 }
             }

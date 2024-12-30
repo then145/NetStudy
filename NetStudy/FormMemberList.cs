@@ -1,4 +1,5 @@
 ﻿using FontAwesome.Sharp;
+using iTextSharp.text.pdf;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.VisualBasic.ApplicationServices;
 using NetStudy.Models;
@@ -24,11 +25,13 @@ namespace NetStudy
         private HubConnection connection;
         private string roleUser;
         private string currUsername;
+        private readonly AesService aesService;
         public static HttpClient httpClient = new HttpClient
         {
             BaseAddress = new Uri(@"https://localhost:7070/")
         };
-        public FormMemberList(string token, string id,string role, string username)
+        private string aesKey;
+        public FormMemberList(string token, string id,string role, string username, string key)
         {
             InitializeComponent();
             accessToken = token;
@@ -36,6 +39,8 @@ namespace NetStudy
             groupService = new GroupService(token);
             roleUser = role;
             currUsername = username;
+            aesKey = key;
+            aesService = new AesService();
             connection = new HubConnectionBuilder()
                 .WithUrl("https://localhost:7070/groupChatHub", opts =>
                 {
@@ -164,8 +169,9 @@ namespace NetStudy
                     if (result == DialogResult.Yes)
                     {
                         await groupService.RemoveMember(groupId, member.Username);
-                        await connection.InvokeAsync("SendMessageGroup", groupId, "Thông báo", $"{member.Username} đã bị xóa khỏi nhóm");
-                        await groupService.SendMessage(groupId, "Thông báo", $"{member.Username} đã bị xóa khỏi nhóm", DateTime.UtcNow);
+                        var content = aesService.EncryptMessage($"{member.Username} đã bị xóa khỏi nhóm", aesKey);
+                        await connection.InvokeAsync("SendMessageGroup", groupId, "Thông báo", content);
+                        await groupService.SendMessage(groupId, "Thông báo", content, DateTime.UtcNow);
                         CreatePanel();
                     }
                     else

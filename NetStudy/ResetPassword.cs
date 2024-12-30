@@ -5,10 +5,13 @@ using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using NetStudy.Models;
+using NetStudy.Services;
 using Newtonsoft.Json;
+using Org.BouncyCastle.Crypto.Generators;
 
 namespace NetStudy
 {
@@ -19,12 +22,15 @@ namespace NetStudy
             BaseAddress = new Uri(@"https://localhost:7070/"),
             Timeout = TimeSpan.FromMinutes(5)
         };
-
+        private RsaService rsaService;
+        private AesService aesService;
         public ResetPassword(string email)
         {
             InitializeComponent();
             tB_email.Text = email;
             tB_email.Enabled = false;
+            rsaService = new RsaService();
+            aesService = new AesService();
         }
 
         private void ResetPassword_Load(object sender, EventArgs e)
@@ -53,17 +59,24 @@ namespace NetStudy
                 MessageBox.Show("Mật khẩu mới và xác nhận mật khẩu không khớp!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-
+            
             try
             {
+                var (publicKey, privateKey) = rsaService.GenerateKeys();
+                string salt;
+                var enKey = aesService.EncryptPrivateKey(privateKey, newPassword, out salt);
+
+                var hashedNewPassword = BCrypt.Net.BCrypt.HashPassword(newPassword);
                 var request = new ResetPasswordRequest
                 {
                     Email = email,
                     Otp = otp,
-                    NewPassword = newPassword,
-                    ConfirmPassword = confirmPassword
+                    NewPassword = hashedNewPassword,
+                    PublicKey = publicKey,
+                    PrivateKey = enKey,
+                    Salt = salt
                 };
-
+                
                 string resultMessage = await ResetUserPassword(request);
 
                 if(resultMessage.Contains("thành công"))
@@ -90,6 +103,7 @@ namespace NetStudy
                 var response = await httpClient.PostAsync("api/user/reset-password", content);
 
                 var responseContent = await response.Content.ReadAsStringAsync();
+                var msg = JsonObject.Parse(responseContent)["message"].ToString();
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -97,7 +111,7 @@ namespace NetStudy
                 }
                 else
                 {
-                    return $"Lỗi: {responseContent}";
+                    return $"Lỗi: {msg}";
                 }
             }
             catch (Exception ex)

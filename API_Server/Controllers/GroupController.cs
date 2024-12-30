@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MongoDB.Driver;
+using NetStudy.Services;
 using Newtonsoft.Json.Linq;
 using System.Net.WebSockets;
 using System.Security.Claims;
@@ -22,12 +23,16 @@ namespace API_Server.Controllers
         private readonly MongoDbService _context;
         
         private readonly JwtService _jwtService;
-        public GroupController(UserService userService, GroupService cgs, MongoDbService context, JwtService jwtService)
+        private readonly RsaService _rsaService;
+        private readonly AesService _aesService;
+        public GroupController(UserService userService, GroupService cgs, MongoDbService context, JwtService jwtService, RsaService rsaService, AesService aesService)
         {
             _userService = userService;
             _chatGroupService = cgs;
             _context = context;
             _jwtService = jwtService;
+            _rsaService = rsaService;
+            _aesService = aesService;
         }
 
         //POST METHOD
@@ -565,7 +570,12 @@ namespace API_Server.Controllers
                     description = group.Description
                 });
             }
+            var user = await _userService.GetUserByUserName(username);
+            var groupKey = _jwtService.DecryptAES(group.GroupKey);
+            var userKey = _rsaService.Encrypt(groupKey, user.PublicKey);
 
+            group.SessionKeyEncrypted[username] = userKey;
+            await _chatGroupService.UpdateGroup(group);
 
             return Ok(new
             {
