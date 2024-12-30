@@ -21,18 +21,58 @@ namespace API_Server.Services
         private readonly IMongoCollection<TokenData> _tokenData;
         private readonly UserService _userService;
         private readonly RsaService _rsaService;
+        private readonly AesService _aesService;
+        private readonly IMongoCollection<KeyModel> _keyModel;
 
-        public JwtService(IConfiguration configuration, MongoDbService db, UserService userService, RsaService rsaService)
+        public JwtService(IConfiguration configuration, 
+            MongoDbService db, 
+            UserService userService,
+            RsaService rsaService,
+            AesService aesService)
         {
             _configuration = configuration;
             _tokenData = db.Tokens;
             _userService = userService;
             _rsaService = rsaService;
+            _aesService = aesService;
+            _keyModel = db.KeyModel;
             _secret = _configuration["JwtSettings:Secret"] ?? throw new ArgumentNullException(nameof(_secret));
             _issuer = _configuration["JwtSettings:Issuer"] ?? throw new ArgumentNullException(nameof(_issuer));
             _audience = _configuration["JwtSettings:Audience"] ?? throw new ArgumentNullException(nameof(_audience));
         }
 
+        public async Task CreateKeyChat(string username1, string username2)
+        {
+            string aesKey = _aesService.GenerateAesKey();
+
+            string enKey = EncryptAes(aesKey);
+            var user1 = await _userService.GetUserByUserName(username1);
+            var user2 = await _userService.GetUserByUserName(username2);
+            
+            var keyChat = new KeyModel
+            {
+                Username1 = username1,
+                Username2 = username2,
+                Key = enKey,
+            };
+            await _keyModel.InsertOneAsync(keyChat);
+        }
+        public async Task<string> GetKeyChat(string username1, string username2)
+        {
+            var filter = Builders<KeyModel>.Filter.Or(
+                Builders<KeyModel>.Filter.And(
+                    Builders<KeyModel>.Filter.Eq(k => k.Username1, username1),
+                    Builders<KeyModel>.Filter.Eq(k => k.Username2, username2)
+                ),
+                Builders<KeyModel>.Filter.And(
+                    Builders<KeyModel>.Filter.Eq(chat => chat.Username1, username2),
+                    Builders<KeyModel>.Filter.Eq(chat => chat.Username2, username1)
+                )
+            );
+            var enKy = await _keyModel.Find(filter).FirstOrDefaultAsync();
+            string aesKey = DecryptAES(enKy.Key);
+            return aesKey;
+        }
         public string EncryptAes(string plainText)
         {
             using (Aes aes = Aes.Create())

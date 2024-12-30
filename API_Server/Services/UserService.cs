@@ -220,6 +220,7 @@ namespace API_Server.Services
             user.FriendRequests.Remove(requestUsername);
             user.Friends.Add(requestUser.Username);
             requestUser.Friends.Add(user.Username);
+            
             await UpdateUser(user);
             await UpdateUser(requestUser); return true;
         }

@@ -197,10 +197,12 @@ namespace API_Server.Controllers
             try
             {
                 await _userService.AcceptFriendRequest(username, requestUsername);
+                await _jwtService.CreateKeyChat(username, requestUsername);
                 return Ok(new
                 {
                     message = "Đã chấp nhận kết bạn!"
                 });
+                
             }
             catch (Exception ex)
             {

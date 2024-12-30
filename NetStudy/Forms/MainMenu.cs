@@ -154,7 +154,7 @@ namespace NetStudy.Forms
         {
             ActivateButton(sender, RGBColors.color3);
             string username = UserInfo["username"].ToString();
-            OpenChildForm(new FormChat(accessToken, username));
+            OpenChildForm(new FormChat(accessToken, username, _key));
         }
         private void btnClass_Click(object sender, EventArgs e)
         {

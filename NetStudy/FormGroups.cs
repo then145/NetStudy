@@ -71,7 +71,7 @@ namespace NetStudy
             {
                 Panel panel = new Panel
                 {
-                    Width = flowLayoutPanel1.Width - 100,
+                    Width = flowLayoutPanel1.Width - 20,
                     Tag = group.Id.ToString(),
                     Height = 100,
                     BorderStyle = BorderStyle.FixedSingle,
@@ -105,7 +105,7 @@ namespace NetStudy
                     BackColor = Color.FromArgb(34, 33, 74),
                     FlatStyle = FlatStyle.Flat,
 
-                    Location = new Point(1060, 5),
+                    Location = new Point(1450, 5),
                     IconChar = IconChar.Info,
                     IconColor = Color.Gainsboro,
                     IconSize = 30,

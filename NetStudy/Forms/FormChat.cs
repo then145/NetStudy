@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using NetStudy.Models;
+using NetStudy.Services;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -21,12 +23,18 @@ namespace NetStudy.Forms
         private HttpClient _httpClient;
         private Panel _selectedPanel;
         private Timer _timer;
-
-        public FormChat(string accessToken, string username)
+        private string _key;
+        private readonly RsaService _rsaService;
+        private readonly AesService _aesService;
+        private string aesKey;
+        public FormChat(string accessToken, string username, string key)
         {
             InitializeComponent();
             _accessToken = accessToken;
             _username = username;
+            _key = key;
+            _aesService = new AesService();
+            _rsaService = new RsaService();
             _httpClient = new HttpClient { BaseAddress = new Uri("https://localhost:7070/") };
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
             ConnectToServer();
@@ -183,14 +191,18 @@ namespace NetStudy.Forms
         private async Task LoadChatHistory(string friend)
         {
             var response = await _httpClient.GetAsync($"api/singlechat/history/{_username}/{friend}");
-            var chatHistory = await response.Content.ReadFromJsonAsync<List<SingleChat>>();
-
+            var res = await response.Content.ReadAsStringAsync();
+            var chatData = JObject.Parse(res);
+            var chatHistory = chatData["data"].ToObject<List<SingleChat>>();
+            var enKey = chatData["key"].ToString();
+             aesKey = _rsaService.Decrypt(enKey, _key);
             if (!this.IsDisposed && textBox_showmsg != null && !textBox_showmsg.IsDisposed)
             {
                 textBox_showmsg.Clear();
                 foreach (var chat in chatHistory)
                 {
-                    textBox_showmsg.AppendText($"{chat.Sender}: {chat.Message}{Environment.NewLine}");
+                    var content = _aesService.DecryptMessage(chat.Message, aesKey);
+                    textBox_showmsg.AppendText($"{chat.Sender}: {content}{Environment.NewLine}");
                 }
             }
         }
@@ -202,10 +214,11 @@ namespace NetStudy.Forms
                 MessageBox.Show("Vui lòng chọn một bạn bè để chat.");
                 return;
             }
-
+            
             var message = textBox_msg.Text;
+            var enMsg = _aesService.EncryptMessage(message, aesKey);
             var receiver = _selectedPanel.Tag.ToString();
-            await _connection.InvokeAsync("SendMessage", _username, receiver, message);
+            await _connection.InvokeAsync("SendMessage", _username, receiver, enMsg);
             textBox_msg.Clear();
         }
 
